@@ -1,0 +1,68 @@
+MEMBRO 1 — Yasmin
+
+1. Configuração inicial do projeto
+   - Criação da estrutura de pastas (app/, models/, routes/, schemas/, etc.)
+   - Configuração do pyproject.toml e uv.lock
+   - Configuração do database.py (AsyncEngine, AsyncSession, get_session)
+   - Configuração do config.py (DATABASE_URL, UPLOAD_DIR)
+
+2. Configuração do Alembic
+   - setup_migrations.py (script de inicialização automática)
+   - env.py customizado (leitura do .env, conversão async→sync, import dos models)
+
+3. Models
+   - model Usuario
+   - model Paciente (one-to-one com Usuario)
+   - model Administrador (one-to-one com Usuario)
+
+4. Rotas — CRUD e consultas
+   - routes/usuarios.py (CRUD completo + busca por nome + ordenação)
+   - routes/pacientes.py (CRUD completo + joinedload + ordenação)
+   - routes/administradores.py (CRUD completo + joinedload + ordenação)
+
+5. Script de seed — parte 1
+   - Geração de dados para: usuarios, pacientes, administradores
+   - Uso do Faker com localização pt_BR
+
+MEMBRO 2 — Milena
+
+1. Models
+   - model ProfissionalSaude (one-to-one com Usuario)
+   - model Vacina
+   - model Lote (many-to-one com Vacina)
+   - model Campanha + CampanhaVacina (many-to-many com Vacina)
+
+2. Rotas — CRUD e consultas
+   - routes/profissionais.py (CRUD completo + filtro por formação + joinedload + ordenação)
+   - routes/vacinas.py (CRUD completo + busca parcial + filtros por doença/público-alvo + contagens + ordenação)
+   - routes/lotes.py (CRUD completo + filtros por vacina, validade, ano + estoque + contagens + ordenação)
+   - routes/campanhas.py (CRUD completo + filtros por ano/período/vacina + contagens + ordenação)
+
+3. Script de seed — parte 2
+   - Geração de dados para: profissionais, vacinas, lotes, campanhas, campanhas_vacinas
+
+MEMBRO 3 — Daniel
+
+1. Models
+   - model Aplicacao (many-to-one com Paciente, Profissional, Admin, Lote)
+   - model Document (many-to-one com Campanha)
+
+2. Rotas — CRUD e consultas
+   - routes/aplicacoes.py (CRUD completo + filtros por paciente, profissional, data, ano, local + contagens por vacina/profissional/lote + ordenação)
+   - routes/documents.py (upload, download, substituição, remoção + filtros por campanha/extensão/nome + contagens + ordenação)
+
+3. Serviço de arquivos
+   - app/service/document_service.py (save_document_file, delete_document_file)
+
+4. main.py
+   - Registro de todos os routers
+   - Exception handlers globais (IntegrityError, OperationalError, NoResultFound, Exception genérica)
+
+5. Script de seed — parte 3
+   - Geração de dados para: aplicacoes, documents
+   - Consistência referencial com os dados gerados pelos demais membros
+
+6. README.md
+   - Documentação completa do projeto
+   - Diagrama Mermaid das entidades e relacionamentos
+
