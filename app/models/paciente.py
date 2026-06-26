@@ -1,14 +1,21 @@
-from sqlmodel import SQLModel, Field, Relationship
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .usuario import Usuario
-    from .aplicacao import Aplicacao
+from datetime import datetime, timezone
 
-class Paciente(SQLModel, table=True):
-    __tablename__ = "pacientes"
+from beanie import Document, PydanticObjectId
+from pydantic import Field
 
-    id_paciente: int = Field(foreign_key="usuarios.id_usuario", primary_key=True)
 
-    usuario: "Usuario" = Relationship(back_populates="paciente")
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
-    aplicacoes: list["Aplicacao"] = Relationship(back_populates="paciente")
+
+class Paciente(Document):
+    usuario_id: PydanticObjectId
+
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    class Settings:
+        name = "pacientes"
+        indexes = [
+            "usuario_id",
+        ]

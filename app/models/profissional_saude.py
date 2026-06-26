@@ -1,15 +1,23 @@
-from sqlmodel import SQLModel, Field, Relationship
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .usuario import Usuario
-    from .aplicacao import Aplicacao
+from datetime import datetime, timezone
 
-class ProfissionalSaude(SQLModel, table=True):
-    __tablename__ = "profissionais_saude"
+from beanie import Document, PydanticObjectId
+from pydantic import Field
 
-    id_profissional: int = Field(foreign_key="usuarios.id_usuario", primary_key=True)
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class ProfissionalSaude(Document):
+    usuario_id: PydanticObjectId
     grau_formacao: str = Field(max_length=120)
 
-    usuario: "Usuario" = Relationship(back_populates="profissional")
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
-    aplicacoes: list["Aplicacao"] = Relationship(back_populates="profissional")
+    class Settings:
+        name = "profissionais_saude"
+        indexes = [
+            "usuario_id",
+            "grau_formacao",
+        ]

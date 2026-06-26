@@ -1,18 +1,18 @@
 [project]
 name = "vacinasys"
 version = "0.1.0"
-description = "Add your description here"
+description = "API Web para gerenciamento de sistema de vacinação com FastAPI, MongoDB e Beanie."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
-    "aiofiles>=25.1.0",
-    "aiosqlite>=0.22.1",
-    "alembic>=1.18.4",
-    "asyncpg>=0.31.0",
-    "faker>=40.15.0",
-    "fastapi-pagination>=0.15.12",
-    "fastapi[standard]>=0.136.1",
-    "psycopg2-binary>=2.9.12",
-    "python-dotenv>=1.2.2",
-    "sqlmodel>=0.0.38",
+    "fastapi[standard]>=0.115.0",
+    "beanie>=1.26.0",
+    "motor>=3.6.0",
+    "pydantic[email]>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "python-dotenv>=1.0.1",
+    "fastapi-pagination>=0.12.31",
+    "faker>=26.0.0",
+    "minio>=7.2.8",
+    "python-multipart>=0.0.9",
 ]

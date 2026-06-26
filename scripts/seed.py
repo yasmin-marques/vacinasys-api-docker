@@ -1,18 +1,19 @@
+import asyncio
 import sys
 import uuid
-import asyncio
+from io import BytesIO
 from pathlib import Path
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
-# Adiciona a raiz do projeto ao path para permitir imports da pasta app
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_DIR))
 
+from beanie import PydanticObjectId, init_beanie
 from faker import Faker
-from sqlmodel.ext.asyncio.session import AsyncSession
+from minio import Minio
+from motor.motor_asyncio import AsyncIOMotorClient
 
-from app.database import engine
-from app.config import UPLOAD_DIR
+from app.config import settings
 
 from app.models.usuario import Usuario
 from app.models.administrador import Administrador
@@ -26,226 +27,282 @@ from app.models.document import Document
 
 fake = Faker("pt_BR")
 
+mongo_client: AsyncIOMotorClient | None = None
 
-# cria usuarios base que serão associados posteriormente
-async def criar_usuarios(session: AsyncSession, quantidade: int = 300):
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def gerar_telefone() -> str:
+    return fake.phone_number()[:20]
+
+
+def gerar_email_unico() -> str:
+    return f"{uuid.uuid4().hex[:10]}@example.com"
+
+
+def filtrar_campos(modelo, dados: dict) -> dict:
+    campos = getattr(modelo, "model_fields", {})
+
+    if not campos:
+        return dados
+
+    return {campo: valor for campo, valor in dados.items() if campo in campos}
+
+
+def criar_documento(modelo, **dados):
+    documento = modelo(**filtrar_campos(modelo, dados))
+
+    if hasattr(documento, "id") and getattr(documento, "id", None) is None:
+        documento.id = PydanticObjectId()
+
+    return documento
+
+
+async def inserir_varios(documentos: list):
+    if not documentos:
+        return documentos
+
+    modelo = type(documentos[0])
+    await modelo.insert_many(documentos)
+    return documentos
+
+
+async def init_database_seed() -> None:
+    global mongo_client
+
+    mongo_client = AsyncIOMotorClient(settings.mongodb_url)
+    database = mongo_client[settings.mongodb_database]
+
+    await init_beanie(
+        database=database,
+        document_models=[
+            Usuario,
+            Administrador,
+            Paciente,
+            ProfissionalSaude,
+            Vacina,
+            Lote,
+            Campanha,
+            CampanhaVacina,
+            Aplicacao,
+            Document,
+        ],
+    )
+
+
+async def close_database_seed() -> None:
+    if mongo_client is not None:
+        mongo_client.close()
+
+
+async def limpar_banco() -> None:
+    modelos = [
+        Document,
+        Aplicacao,
+        CampanhaVacina,
+        Campanha,
+        Lote,
+        Vacina,
+        Administrador,
+        Paciente,
+        ProfissionalSaude,
+        Usuario,
+    ]
+
+    for modelo in modelos:
+        await modelo.delete_all()
+
+
+async def criar_usuarios(quantidade: int = 300):
     usuarios = []
+
+    fake.unique.clear()
 
     for _ in range(quantidade):
         usuario = Usuario(
             pnome=fake.first_name(),
             unome=fake.last_name(),
-            email=f"{uuid.uuid4().hex[:10]}@example.com",
+            email=gerar_email_unico(),
             senha=fake.password(length=12),
-            telefone=fake.phone_number(),
+            telefone=gerar_telefone(),
             cpf_usuario=fake.unique.cpf(),
         )
 
-        session.add(usuario)
+        if getattr(usuario, "id", None) is None:
+            usuario.id = PydanticObjectId()
+
         usuarios.append(usuario)
 
-    # Gera os IDs sem finalizar a transação
-    await session.flush()
-
+    await inserir_varios(usuarios)
     return usuarios
 
 
-# os 100 primeiros usuarios serão administradores
-async def criar_administradores(
-    session: AsyncSession,
-    usuarios: list[Usuario]
-):
+async def criar_administradores(usuarios: list[Usuario]):
     administradores = []
 
     for usuario in usuarios[:100]:
-        admin = Administrador(
-            id_admin=usuario.id_usuario
-        )
+        admin = Administrador(usuario_id=usuario.id)
 
-        session.add(admin)
+        if getattr(admin, "id", None) is None:
+            admin.id = PydanticObjectId()
+
         administradores.append(admin)
 
-    await session.flush()
-
+    await inserir_varios(administradores)
     return administradores
 
 
-# os próximos 100 usuarios serão pacientes
-async def criar_pacientes(
-    session: AsyncSession,
-    usuarios: list[Usuario]
-):
+async def criar_pacientes(usuarios: list[Usuario]):
     pacientes = []
 
     for usuario in usuarios[100:200]:
-        paciente = Paciente(
-            id_paciente=usuario.id_usuario
-        )
+        paciente = Paciente(usuario_id=usuario.id)
 
-        session.add(paciente)
+        if getattr(paciente, "id", None) is None:
+            paciente.id = PydanticObjectId()
+
         pacientes.append(paciente)
 
-    await session.flush()
-
+    await inserir_varios(pacientes)
     return pacientes
 
 
-# os últimos 100 usuarios serão profissionais de saúde
-async def criar_profissionais(
-    session: AsyncSession,
-    usuarios: list[Usuario]
-):
+async def criar_profissionais(usuarios: list[Usuario]):
     profissionais = []
+
+    formacoes = [
+        "Enfermagem",
+        "Técnico em Enfermagem",
+        "Medicina",
+        "Farmácia",
+        "Biomedicina",
+    ]
 
     for usuario in usuarios[200:300]:
         profissional = ProfissionalSaude(
-            id_profissional=usuario.id_usuario,
-            grau_formacao=fake.random_element(
-                elements=[
-                    "Enfermeiro(a)",
-                    "Técnico(a) de Enfermagem",
-                    "Médico(a)",
-                    "Farmacêutico(a)",
-                    "Biomédico(a)",
-                ]
-            ),
+            usuario_id=usuario.id,
+            grau_formacao=fake.random_element(formacoes),
         )
 
-        session.add(profissional)
+        if getattr(profissional, "id", None) is None:
+            profissional.id = PydanticObjectId()
+
         profissionais.append(profissional)
 
-    await session.flush()
-
+    await inserir_varios(profissionais)
     return profissionais
 
 
-# cria vacinas com dados coerentes para campanhas de imunização
-async def criar_vacinas(
-    session: AsyncSession,
-    quantidade: int = 100
-):
+async def criar_vacinas(quantidade: int = 100):
     vacinas = []
 
-    doencas = [
-        ("BCG", "Tuberculose", "Recém-nascidos"),
-        ("Hepatite B", "Hepatite B", "Recém-nascidos e adultos"),
-        ("VIP", "Poliomielite", "Crianças"),
-        ("Tríplice Viral", "Sarampo, Caxumba e Rubéola", "Crianças e adultos"),
-        ("Influenza", "Gripe", "Idosos, gestantes e crianças"),
-        ("COVID-19", "COVID-19", "População geral"),
-        ("HPV", "HPV", "Adolescentes"),
-        ("Febre Amarela", "Febre Amarela", "Viajantes e áreas de risco"),
+    catalogo = [
+        ("BCG", "Tuberculose", "Recém-nascidos", 1),
+        ("Hepatite B", "Hepatite B", "Recém-nascidos e adultos", 3),
+        ("VIP", "Poliomielite", "Crianças", 3),
+        ("Tríplice Viral", "Sarampo, Caxumba e Rubéola", "Crianças e adultos", 2),
+        ("Influenza", "Gripe", "Idosos, gestantes e crianças", 1),
+        ("COVID-19", "COVID-19", "População geral", 2),
+        ("HPV", "HPV", "Adolescentes", 2),
+        ("Febre Amarela", "Febre Amarela", "Viajantes e áreas de risco", 1),
     ]
 
-    for _ in range(quantidade):
-        nome, doenca, publico = fake.random_element(doencas)
+    fake.unique.clear()
 
-        vacina = Vacina(
+    for _ in range(quantidade):
+        nome, doenca, publico_alvo, quantidade_doses = fake.random_element(catalogo)
+
+        vacina = criar_documento(
+            Vacina,
             codigo_vacina=fake.unique.bothify(text="VAC-#####"),
-            nome=f"{nome} {fake.bothify(text='LT-####')}",
+            nome=nome,
             doenca=doenca,
-            publico_alvo=publico,
-            quantidade_doses=fake.random_int(min=1, max=5),
+            quantidade_doses=quantidade_doses,
+            publico_alvo=publico_alvo,
             cnpj_fabricante=fake.cnpj(),
         )
 
-        session.add(vacina)
         vacinas.append(vacina)
 
-    await session.flush()
-
+    await inserir_varios(vacinas)
     return vacinas
 
 
-# cria lotes vinculados as vacinas já cadastradas
-async def criar_lotes(
-    session: AsyncSession,
-    vacinas: list[Vacina],
-    quantidade: int = 100
-):
+async def criar_lotes(vacinas: list[Vacina], quantidade: int = 100):
     lotes = []
 
     for _ in range(quantidade):
         vacina = fake.random_element(vacinas)
+        data_chegada = fake.date_between(start_date="-1y", end_date="today")
+        validade = data_chegada + timedelta(days=fake.random_int(min=180, max=900))
 
-        lote = Lote(
-            validade=fake.future_date(end_date="+2y"),
-            data_chegada=fake.date_between(
-                start_date="-1y",
-                end_date="today"
-            ),
+        lote = criar_documento(
+            Lote,
+            validade=validade,
+            data_chegada=data_chegada,
             quantidade=fake.random_int(min=50, max=2000),
             cnpj_fornecedor=fake.cnpj(),
             codigo_vacina=vacina.codigo_vacina,
         )
 
-        session.add(lote)
         lotes.append(lote)
 
-    await session.flush()
-
+    await inserir_varios(lotes)
     return lotes
 
 
-# cria campanhas administradas por usuarios administradores
 async def criar_campanhas(
-    session: AsyncSession,
     administradores: list[Administrador],
     vacinas: list[Vacina],
     quantidade: int = 100,
 ):
     campanhas = []
+    vacinas_por_campanha = []
 
     for _ in range(quantidade):
-        inicio = fake.date_between(
-            start_date="-1y",
-            end_date="+6m"
+        data_inicio = fake.date_between(start_date="-1y", end_date="+6m")
+        data_fim = data_inicio + timedelta(days=fake.random_int(min=15, max=90))
+        admin = fake.random_element(administradores)
+
+        campanha = criar_documento(
+            Campanha,
+            nome_campanha=f"Campanha {fake.word().capitalize()} {fake.random_int(min=2024, max=2026)}",
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            id_admin=admin.id,
         )
 
-        fim = inicio + timedelta(
-            days=fake.random_int(min=15, max=90)
-        )
-
-        campanha = Campanha(
-            nome_campanha=(
-                f"Campanha "
-                f"{fake.word().capitalize()} "
-                f"{fake.random_int(min=2024, max=2026)}"
-            ),
-            data_inicio=inicio,
-            data_fim=fim,
-            id_admin=fake.random_element(administradores).id_admin,
-        )
-
-        session.add(campanha)
-        campanhas.append(campanha)
-
-    await session.flush()
-
-    # cria relacionamento muitos-para-muitos entre campanhas e vacinas
-    for campanha in campanhas:
         vacinas_sorteadas = fake.random_elements(
             elements=vacinas,
             length=fake.random_int(min=1, max=3),
             unique=True,
         )
 
+        campanhas.append(campanha)
+        vacinas_por_campanha.append((campanha, vacinas_sorteadas))
+
+    await inserir_varios(campanhas)
+
+    vinculos = []
+
+    for campanha, vacinas_sorteadas in vacinas_por_campanha:
         for vacina in vacinas_sorteadas:
-            session.add(
-                CampanhaVacina(
-                    id_campanha=campanha.id_campanha,
-                    codigo_vacina=vacina.codigo_vacina,
-                )
+            vinculo = criar_documento(
+                CampanhaVacina,
+                id_campanha=campanha.id,
+                codigo_vacina=vacina.codigo_vacina,
             )
 
-    await session.flush()
+            vinculos.append(vinculo)
+
+    await inserir_varios(vinculos)
 
     return campanhas
 
 
-# cria aplicações de vacina utilizando os lotes cadastrados
 async def criar_aplicacoes(
-    session: AsyncSession,
     pacientes: list[Paciente],
     profissionais: list[ProfissionalSaude],
     administradores: list[Administrador],
@@ -254,60 +311,81 @@ async def criar_aplicacoes(
 ):
     aplicacoes = []
 
+    locais = [
+        "UBS Centro",
+        "Posto de Saúde Vila Nova",
+        "Hospital Municipal",
+        "Unidade Básica de Saúde São José",
+        "Centro de Imunização",
+    ]
+
     for _ in range(quantidade):
-        aplicacao = Aplicacao(
+        paciente = fake.random_element(pacientes)
+        profissional = fake.random_element(profissionais)
+        admin = fake.random_element(administradores)
+        lote = fake.random_element(lotes)
+
+        aplicacao = criar_documento(
+            Aplicacao,
             data=fake.date_time_between(
                 start_date="-1y",
-                end_date="now"
+                end_date="now",
+                tzinfo=timezone.utc,
             ),
-            id_paciente=fake.random_element(pacientes).id_paciente,
-            id_profissional=fake.random_element(profissionais).id_profissional,
-            id_admin=fake.random_element(administradores).id_admin,
-            id_lote=fake.random_element(lotes).id_lote,
-            local=fake.random_element(
-                elements=[
-                    "UBS Centro",
-                    "Posto de Saúde Vila Nova",
-                    "Hospital Municipal",
-                    "Unidade Básica de Saúde São José",
-                    "Centro de Imunização",
-                ]
-            ),
+            id_paciente=paciente.id,
+            id_profissional=profissional.id,
+            id_admin=admin.id,
+            id_lote=lote.id,
+            local=fake.random_element(locais),
         )
 
-        session.add(aplicacao)
         aplicacoes.append(aplicacao)
 
-    await session.flush()
-
+    await inserir_varios(aplicacoes)
     return aplicacoes
 
 
-async def criar_documents(
-    session: AsyncSession,
-    campanhas: list[Campanha],
-    quantidade: int = 100,
-):
-    """
-    Cria registros de Document vinculados a campanhas e grava arquivos
-    dummy no disco para que o banco e o sistema de arquivos fiquem
-    consistentes entre si.
+def criar_cliente_minio() -> Minio:
+    return Minio(
+        settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        secure=settings.minio_secure,
+    )
 
-    Tipos simulados: PDF (relatórios/autorizações) e PNG (cartazes/banners).
-    """
+
+def garantir_bucket_minio(client: Minio) -> None:
+    if not client.bucket_exists(settings.minio_bucket):
+        client.make_bucket(settings.minio_bucket)
+
+
+def enviar_arquivo_minio(
+    client: Minio,
+    object_name: str,
+    conteudo: bytes,
+    content_type: str,
+) -> None:
+    client.put_object(
+        bucket_name=settings.minio_bucket,
+        object_name=object_name,
+        data=BytesIO(conteudo),
+        length=len(conteudo),
+        content_type=content_type,
+    )
+
+
+async def criar_documents(campanhas: list[Campanha], quantidade: int = 100):
     documentos = []
 
     tipos = [
-        ("pdf", "application/pdf", "Relatório"),
-        ("pdf", "application/pdf", "Autorização"),
+        ("pdf", "application/pdf", "Relatorio"),
+        ("pdf", "application/pdf", "Autorizacao"),
         ("pdf", "application/pdf", "Protocolo"),
         ("png", "image/png", "Cartaz"),
         ("png", "image/png", "Banner"),
     ]
 
-    # Conteúdo mínimo válido para cada tipo, assim o arquivo existe em disco
-    # e não é um arquivo vazio (evita problemas em downloads de teste).
-    _conteudo = {
+    conteudos = {
         "pdf": (
             b"%PDF-1.4\n1 0 obj<</Type /Catalog /Pages 2 0 R>>endobj "
             b"2 0 obj<</Type /Pages /Kids[3 0 R]/Count 1>>endobj "
@@ -315,7 +393,6 @@ async def criar_documents(
             b"endobj\nxref\n0 4\ntrailer<</Size 4 /Root 1 0 R>>\n"
             b"startxref\n0\n%%EOF"
         ),
-        # PNG de 1x1 pixel transparente (cabeçalho mínimo válido)
         "png": (
             b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
             b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
@@ -324,96 +401,70 @@ async def criar_documents(
         ),
     }
 
+    minio_client = criar_cliente_minio()
+    minio_disponivel = True
+
+    try:
+        garantir_bucket_minio(minio_client)
+    except Exception as erro:
+        minio_disponivel = False
+        print(
+            "Aviso: não foi possível conectar ao MinIO. "
+            f"Apenas os metadados serão inseridos. Detalhe: {erro}"
+        )
+
     for _ in range(quantidade):
-        ext, content_type, prefixo = fake.random_element(tipos)
+        extensao, content_type, prefixo = fake.random_element(tipos)
         campanha = fake.random_element(campanhas)
+        conteudo = conteudos[extensao]
+        document_id = PydanticObjectId()
+        object_name = f"{document_id}.{extensao}"
 
-        # Nome de arquivo realista
-        sufixo = fake.bothify(text="??##").upper()
-        original_filename = (
-            f"{prefixo}_{campanha.nome_campanha.replace(' ', '_')}_{sufixo}.{ext}"
-        )
-
-        conteudo = _conteudo[ext]
-
-        document = Document(
-            original_filename=original_filename,
+        documento = criar_documento(
+            Document,
+            id=document_id,
+            original_filename=f"{prefixo}_Campanha_{fake.random_int(min=1000, max=9999)}.{extensao}",
             content_type=content_type,
-            extension=ext,
+            extension=extensao,
             size_bytes=len(conteudo),
-            id_campanha=campanha.id_campanha,
+            created_at=utc_now(),
+            id_campanha=campanha.id,
         )
 
-        session.add(document)
-        await session.flush()  # garante que document.id está disponível
+        await documento.insert()
 
-        # Grava o arquivo físico em disco
-        file_path = UPLOAD_DIR / f"{document.id}.{ext}"
-        file_path.write_bytes(conteudo)
+        if minio_disponivel:
+            try:
+                enviar_arquivo_minio(minio_client, object_name, conteudo, content_type)
+            except Exception as erro:
+                print(f"Aviso: falha ao enviar {object_name} para o MinIO. Detalhe: {erro}")
 
-        documentos.append(document)
+        documentos.append(documento)
 
     return documentos
 
 
 async def main():
-    async with AsyncSession(engine) as session:
+    await init_database_seed()
 
-        usuarios = await criar_usuarios(
-            session,
-            quantidade=300
-        )
+    try:
+        await limpar_banco()
 
-        administradores = await criar_administradores(
-            session,
-            usuarios
-        )
-
-        pacientes = await criar_pacientes(
-            session,
-            usuarios
-        )
-
-        profissionais = await criar_profissionais(
-            session,
-            usuarios
-        )
-
-        vacinas = await criar_vacinas(
-            session,
-            quantidade=100
-        )
-
-        lotes = await criar_lotes(
-            session,
-            vacinas,
-            quantidade=100
-        )
-
-        campanhas = await criar_campanhas(
-            session,
-            administradores,
-            vacinas,
-            quantidade=100
-        )
-
+        usuarios = await criar_usuarios(quantidade=300)
+        administradores = await criar_administradores(usuarios)
+        pacientes = await criar_pacientes(usuarios)
+        profissionais = await criar_profissionais(usuarios)
+        vacinas = await criar_vacinas(quantidade=100)
+        lotes = await criar_lotes(vacinas, quantidade=100)
+        campanhas = await criar_campanhas(administradores, vacinas, quantidade=100)
         aplicacoes = await criar_aplicacoes(
-            session,
             pacientes,
             profissionais,
             administradores,
             lotes,
             quantidade=100,
         )
-
-        documentos = await criar_documents(
-            session,
-            campanhas,
-            quantidade=100,
-        )
-
-        # commit único ao final para persistir todos os dados
-        await session.commit()
+        documentos = await criar_documents(campanhas, quantidade=100)
 
         print(f"{len(usuarios)} usuários criados.")
         print(f"{len(administradores)} administradores criados.")
@@ -424,6 +475,8 @@ async def main():
         print(f"{len(campanhas)} campanhas criadas.")
         print(f"{len(aplicacoes)} aplicações criadas.")
         print(f"{len(documentos)} documentos criados.")
+    finally:
+        await close_database_seed()
 
 
 if __name__ == "__main__":

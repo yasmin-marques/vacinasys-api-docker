@@ -1,18 +1,26 @@
-from sqlmodel import SQLModel
+from datetime import datetime
 
-from .usuario import UsuarioResumo
+from beanie import PydanticObjectId
+from pydantic import BaseModel, ConfigDict
+
+from app.schemas.usuario import UsuarioResumo
 
 
-class PacienteCreate(SQLModel):
-    id_paciente: int
+class PacienteCreate(BaseModel):
+    usuario_id: PydanticObjectId
 
 
-class PacienteUpdate(SQLModel):
+class PacienteUpdate(BaseModel):
     pass
 
 
-class PacienteRead(SQLModel):
-    id_paciente: int
+class PacienteRead(BaseModel):
+    id: PydanticObjectId
+    usuario_id: PydanticObjectId
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PacienteReadDetalhado(PacienteRead):

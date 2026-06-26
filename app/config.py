@@ -1,27 +1,24 @@
-from pathlib import Path
-import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from dotenv import load_dotenv
 
-load_dotenv()
+class Settings(BaseSettings):
+    app_name: str = "VacinaSys"
+    app_version: str = "0.1.0"
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+    mongodb_url: str
+    mongodb_database: str = "vacinasys"
 
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL não foi definida no arquivo .env")
+    minio_endpoint: str = "minio:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "vacinasys-documents"
+    minio_secure: bool = False
 
-SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
-APP_DIR = Path(__file__).resolve().parent
-BASE_DIR = APP_DIR.parent
 
-# tenta usar app/uploads primeiro
-upload_inside_app = APP_DIR / "uploads"
-
-# se não existir, usa uploads na raiz
-if upload_inside_app.exists():
-    UPLOAD_DIR = upload_inside_app
-else:
-    UPLOAD_DIR = BASE_DIR / "uploads"
-
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+settings = Settings()

@@ -1,34 +1,32 @@
-from collections.abc import AsyncGenerator
+from beanie import init_beanie
+from motor.motor_asyncio import AsyncIOMotorClient
 
-from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlalchemy.orm import sessionmaker
+from app.config import settings
+from app.models.administrador import Administrador
+from app.models.paciente import Paciente
+from app.models.profissional_saude import ProfissionalSaude
+from app.models.usuario import Usuario
 
-from app.config import DATABASE_URL, SQL_ECHO
-
-engine: AsyncEngine = create_async_engine(
-    DATABASE_URL,
-    echo=SQL_ECHO,
-    future=True,
-    pool_pre_ping=True,
-)
-
-async_session = sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
-
-if DATABASE_URL.startswith("sqlite"):
-
-    @event.listens_for(engine.sync_engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+client: AsyncIOMotorClient | None = None
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    async with async_session() as session:
-        yield session
+async def init_database() -> None:
+    global client
+
+    client = AsyncIOMotorClient(settings.mongodb_url)
+    database = client[settings.mongodb_database]
+
+    await init_beanie(
+        database=database,
+        document_models=[
+            Usuario,
+            Paciente,
+            ProfissionalSaude,
+            Administrador,
+        ],
+    )
+
+
+async def close_database() -> None:
+    if client is not None:
+        client.close()

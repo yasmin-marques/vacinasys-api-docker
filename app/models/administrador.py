@@ -1,17 +1,21 @@
-from sqlmodel import SQLModel, Field, Relationship
-from typing import TYPE_CHECKING
+from datetime import datetime, timezone
 
-if TYPE_CHECKING:
-    from .usuario import Usuario
-    from .campanha import Campanha
-    from .aplicacao import Aplicacao
+from beanie import Document, PydanticObjectId
+from pydantic import Field
 
-class Administrador(SQLModel, table=True):
-    __tablename__ = "administradores"
 
-    id_admin: int = Field(foreign_key="usuarios.id_usuario", primary_key=True,)
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
-    usuario: "Usuario" = Relationship(back_populates="administrador")
 
-    campanhas: list["Campanha"] = Relationship(back_populates="admin")
-    aplicacoes: list["Aplicacao"] = Relationship(back_populates="admin")
+class Administrador(Document):
+    usuario_id: PydanticObjectId
+
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    class Settings:
+        name = "administradores"
+        indexes = [
+            "usuario_id",
+        ]

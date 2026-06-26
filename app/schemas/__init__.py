@@ -1,22 +1,24 @@
-from .usuario import UsuarioCreate, UsuarioUpdate, UsuarioRead, UsuarioResumo
-from .paciente import PacienteCreate, PacienteUpdate, PacienteRead, PacienteReadDetalhado
-from .administrador import AdministradorCreate, AdministradorUpdate, AdministradorRead, AdministradorReadDetalhado
-from .profissional_saude import (
+from app.schemas.administrador import (
+    AdministradorCreate,
+    AdministradorRead,
+    AdministradorReadDetalhado,
+    AdministradorUpdate,
+)
+from app.schemas.paciente import (
+    PacienteCreate,
+    PacienteRead,
+    PacienteReadDetalhado,
+    PacienteUpdate,
+)
+from app.schemas.profissional_saude import (
     ProfissionalSaudeCreate,
-    ProfissionalSaudeUpdate,
     ProfissionalSaudeRead,
     ProfissionalSaudeReadDetalhado,
+    ProfissionalSaudeUpdate,
 )
-from .vacina import VacinaCreate, VacinaUpdate, VacinaRead, VacinaResumo
-from .lote import LoteCreate, LoteUpdate, LoteRead, LoteReadComVacina
-from .campanha import (
-    CampanhaCreate,
-    CampanhaUpdate,
-    CampanhaRead,
-    CampanhaResumo,
-    CampanhaReadDetalhada,
-    CampanhaVacinaCreate,
-    CampanhaVacinaRead,
+from app.schemas.usuario import (
+    UsuarioCreate,
+    UsuarioRead,
+    UsuarioResumo,
+    UsuarioUpdate,
 )
-from .aplicacao import AplicacaoCreate, AplicacaoUpdate, AplicacaoRead, AplicacaoReadDetalhada
-from .document import DocumentCreate, DocumentUpdate, DocumentRead, DocumentReadDetalhado

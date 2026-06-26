@@ -1,68 +1,56 @@
-MEMBRO 1 — Yasmin
+DIVISÃO DE TAREFAS — VACINASYS
 
-1. Configuração inicial do projeto
-   - Criação da estrutura de pastas (app/, models/, routes/, schemas/, etc.)
-   - Configuração do pyproject.toml e uv.lock
-   - Configuração do database.py (AsyncEngine, AsyncSession, get_session)
-   - Configuração do config.py (DATABASE_URL, UPLOAD_DIR)
+Yasmin — BASE DO PROJETO, PESSOAS E SEED GERAL
 
-2. Configuração do Alembic
-   - setup_migrations.py (script de inicialização automática)
-   - env.py customizado (leitura do .env, conversão async→sync, import dos models)
+Responsável pela base técnica inicial da aplicação e pela migração da estrutura principal para MongoDB com Beanie.
 
-3. Models
-   - model Usuario
-   - model Paciente (one-to-one com Usuario)
-   - model Administrador (one-to-one com Usuario)
+Atividades principais:
+- Configuração da aplicação FastAPI com MongoDB assíncrono.
+- Configuração do Beanie como ODM.
+- Ajuste do gerenciamento de dependências com uv.
+- Organização dos arquivos obrigatórios do projeto, como pyproject.toml, uv.lock e .python-version.
+- Configuração dos arquivos app/config.py, app/database.py e app/main.py.
+- Refatoração dos modelos, schemas e rotas das entidades relacionadas a pessoas:
+  - Usuario;
+  - Paciente;
+  - ProfissionalSaude;
+  - Administrador.
+- Implementação de paginação nas listagens dessas entidades.
+- Criação do script geral de seed do banco de dados, com Faker pt_BR.
+- Garantia de que o seed utilize as configurações do arquivo .env e respeite os relacionamentos entre as entidades.
 
-4. Rotas — CRUD e consultas
-   - routes/usuarios.py (CRUD completo + busca por nome + ordenação)
-   - routes/pacientes.py (CRUD completo + joinedload + ordenação)
-   - routes/administradores.py (CRUD completo + joinedload + ordenação)
 
-5. Script de seed — parte 1
-   - Geração de dados para: usuarios, pacientes, administradores
-   - Uso do Faker com localização pt_BR
+Milena — VACINAÇÃO, RELACIONAMENTOS E CONSULTAS
+Responsável pelas entidades centrais do domínio de vacinação e pelas consultas mais específicas do sistema.
 
-MEMBRO 2 — Milena
+Atividades principais:
+- Refatoração dos modelos, schemas e rotas das entidades:
+  - Vacina;
+  - Lote;
+  - Campanha;
+  - Aplicacao.
+- Implementação dos CRUDs dessas entidades.
+- Configuração dos relacionamentos entre vacinas, lotes, campanhas e aplicações.
+- Implementação do relacionamento entre campanha e vacina.
+- Implementação dos vínculos da aplicação com paciente, profissional de saúde, administrador, vacina e lote.
+- Implementação de paginação nas listagens.
+- Implementação de agregações e contagens com aggregation pipeline.
+- Validação dos dados gerados pelo seed relacionados a vacinas, lotes, campanhas e aplicações.
 
-1. Models
-   - model ProfissionalSaude (one-to-one com Usuario)
-   - model Vacina
-   - model Lote (many-to-one com Vacina)
-   - model Campanha + CampanhaVacina (many-to-many com Vacina)
 
-2. Rotas — CRUD e consultas
-   - routes/profissionais.py (CRUD completo + filtro por formação + joinedload + ordenação)
-   - routes/vacinas.py (CRUD completo + busca parcial + filtros por doença/público-alvo + contagens + ordenação)
-   - routes/lotes.py (CRUD completo + filtros por vacina, validade, ano + estoque + contagens + ordenação)
-   - routes/campanhas.py (CRUD completo + filtros por ano/período/vacina + contagens + ordenação)
+Daniel — DOCUMENTOS, MINIO E DOCKER
+Responsável pela parte de documentos, armazenamento de arquivos e dockerização.
 
-3. Script de seed — parte 2
-   - Geração de dados para: profissionais, vacinas, lotes, campanhas, campanhas_vacinas
-
-MEMBRO 3 — Daniel
-
-1. Models
-   - model Aplicacao (many-to-one com Paciente, Profissional, Admin, Lote)
-   - model Document (many-to-one com Campanha)
-
-2. Rotas — CRUD e consultas
-   - routes/aplicacoes.py (CRUD completo + filtros por paciente, profissional, data, ano, local + contagens por vacina/profissional/lote + ordenação)
-   - routes/documents.py (upload, download, substituição, remoção + filtros por campanha/extensão/nome + contagens + ordenação)
-
-3. Serviço de arquivos
-   - app/service/document_service.py (save_document_file, delete_document_file)
-
-4. main.py
-   - Registro de todos os routers
-   - Exception handlers globais (IntegrityError, OperationalError, NoResultFound, Exception genérica)
-
-5. Script de seed — parte 3
-   - Geração de dados para: aplicacoes, documents
-   - Consistência referencial com os dados gerados pelos demais membros
-
-6. README.md
-   - Documentação completa do projeto
-   - Diagrama Mermaid das entidades e relacionamentos
-
+Atividades principais:
+- Refatoração da entidade Document.
+- Implementação dos metadados obrigatórios dos documentos.
+- Integração da aplicação com o MinIO.
+- Garantia de que os arquivos físicos sejam salvos no MinIO.
+- Garantia de que o MongoDB armazene apenas os metadados dos documentos.
+- Implementação dos endpoints de upload, listagem, download, substituição e remoção de documentos.
+- Associação de documentos a campanhas.
+- Criação do Dockerfile.
+- Criação e configuração do docker-compose.yml.
+- Configuração dos serviços api, mongo e minio.
+- Configuração dos volumes persistentes do MongoDB e do MinIO.
+- Configuração das variáveis de ambiente no .env e .env.example.
