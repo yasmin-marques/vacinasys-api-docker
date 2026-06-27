@@ -1,37 +1,97 @@
-# app/service/document_service.py
-import aiofiles
-import aiofiles.os
+from fastapi import UploadFile
 
-from app.config import UPLOAD_DIR  # UPLOAD_DIR já é Path absoluto; o mkdir é feito lá
+from app.service.minio_service import MinioService
 
 
-async def save_document_file(
-    content: bytes,
-    document_id: int,
-    extension: str,
-) -> tuple[str, str]:
-    """
-    Salva os bytes do arquivo em disco de forma assíncrona.
+class DocumentService:
 
-    Recebe `content` (bytes já lidos no router) em vez do objeto UploadFile,
-    para não bloquear o event loop com I/O síncrono.
-
-    Retorna (stored_filename, file_path).
-    """
-    stored_filename = f"{document_id}.{extension}"
-    file_path = UPLOAD_DIR / stored_filename
-
-    async with aiofiles.open(file_path, "wb") as f:
-        await f.write(content)
-
-    return stored_filename, str(file_path)
+    def __init__(self):
+        self.minio = MinioService()
 
 
-async def delete_document_file(stored_filename: str) -> None:
-    """Remove o arquivo físico do disco de forma assíncrona."""
-    file_path = UPLOAD_DIR / stored_filename
+    async def upload_document(
+        self,
+        campanha_id: str,
+        file: UploadFile,
+    ):
+        """
+        Salva os metadados do documento no MongoDB e o arquivo no MinIO.
+        """
+        raise NotImplementedError
 
-    try:
-        await aiofiles.os.remove(file_path)
-    except FileNotFoundError:
-        pass  # já foi removido ou nunca chegou a existir — sem problema
+
+    async def list_documents(
+        self,
+        campanha_id: str,
+    ):
+        """
+        Lista todos os documentos associados a uma campanha.
+        """
+        raise NotImplementedError
+
+
+    async def get_document_metadata(
+        self,
+        document_id: str,
+    ):
+        """
+        Retorna apenas os metadados do documento.
+        """
+        raise NotImplementedError
+
+
+    async def download_document(
+        self,
+        document_id: str,
+    ):
+        """
+        Retorna o arquivo armazenado no MinIO.
+        """
+        raise NotImplementedError
+
+
+    async def replace_document(
+        self,
+        document_id: str,
+        file: UploadFile,
+    ):
+        """
+        Substitui o arquivo físico e atualiza seus metadados.
+        """
+        raise NotImplementedError
+
+
+    async def delete_document(
+        self,
+        document_id: str,
+    ):
+        """
+        Remove o documento do MongoDB e o arquivo do MinIO.
+        """
+        raise NotImplementedError
+    
+document_service = DocumentService()
+# Fluxo esperado
+#     Route
+#     │
+#     ▼
+# UploadFile
+#     │
+#     ▼
+# DocumentService
+#     │
+#     ├── extrai:
+#     │      • nome original
+#     │      • extensão
+#     │      • MIME
+#     │      • tamanho
+#     │
+#     ├── cria Document
+#     │
+#     ├── salva no MongoDB
+#     │
+#     ├── usa o id gerado como object_name
+#     │
+#     ├── envia o arquivo ao MinIO
+#     │
+#     └── retorna os metadados

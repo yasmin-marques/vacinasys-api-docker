@@ -29,3 +29,9 @@ minio-data/
 
 # Git
 .git/
+
+# outros arquivos:
+
+GUIA-DANIEL.md
+minha-parte.md
+app/tests

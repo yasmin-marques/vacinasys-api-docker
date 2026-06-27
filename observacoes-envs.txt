@@ -1,0 +1,30 @@
+Você atualmente executa a API fora do Docker.
+
+Se trocar o .env para:
+
+MONGODB_URL=mongodb://mongo:27017
+
+e continuar executando:
+
+    uv run uvicorn app.main:app --reload
+
+ela não vai encontrar o MongoDB, porque mongo só existe dentro da rede do Docker Compose.
+
+Por isso, o ideal é manter dois arquivos:
+
+    .env                 ← usado pelo Docker Compose
+    .env.local           ← usado para desenvolvimento local
+
+Por exemplo:
+
+(.env.local)
+
+    MONGODB_URL=mongodb://localhost:27017
+    MINIO_ENDPOINT=localhost:9000
+
+(.env)
+
+    MONGODB_URL=mongodb://mongo:27017
+    MINIO_ENDPOINT=minio:9000
+
+Essa separação evita que você tenha que editar o arquivo toda vez que alternar entre desenvolvimento local e Docker.
