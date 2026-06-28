@@ -34,4 +34,4 @@ async def init_database() -> None:
 
 async def close_database() -> None:
     if client is not None:
-        client.close()
+        await client.close()
