@@ -6,7 +6,7 @@ from app.models.administrador import Administrador
 from app.models.paciente import Paciente
 from app.models.profissional_saude import ProfissionalSaude
 from app.models.usuario import Usuario
-# from app.models.document import Document
+from app.models.document import Document
 
 client: AsyncMongoClient | None = None
 
@@ -27,7 +27,7 @@ async def init_database() -> None:
             Paciente,
             ProfissionalSaude,
             Administrador,
-            # Document
+            Document
         ],
     )
 
