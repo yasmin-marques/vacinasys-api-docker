@@ -1,29 +1,29 @@
 import asyncio
+import random
 import sys
 import uuid
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT_DIR))
 
 from beanie import PydanticObjectId, init_beanie
 from faker import Faker
 from minio import Minio
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from app.config import settings
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT_DIR))
 
-from app.models.usuario import Usuario
+from app.config import settings
 from app.models.administrador import Administrador
+from app.models.aplicacao import Aplicacao
+from app.models.campanha import Campanha, CampanhaVacina
+from app.models.document import Document
+from app.models.lote import Lote
 from app.models.paciente import Paciente
 from app.models.profissional_saude import ProfissionalSaude
+from app.models.usuario import Usuario
 from app.models.vacina import Vacina
-from app.models.lote import Lote
-from app.models.campanha import Campanha, CampanhaVacina
-from app.models.aplicacao import Aplicacao
-from app.models.document import Document
 
 fake = Faker("pt_BR")
 
@@ -66,6 +66,7 @@ async def inserir_varios(documentos: list):
 
     modelo = type(documentos[0])
     await modelo.insert_many(documentos)
+
     return documentos
 
 
@@ -112,7 +113,7 @@ async def limpar_banco() -> None:
     ]
 
     for modelo in modelos:
-        await modelo.delete_all()
+        await modelo.find_all().delete()
 
 
 async def criar_usuarios(quantidade: int = 300):
@@ -136,6 +137,7 @@ async def criar_usuarios(quantidade: int = 300):
         usuarios.append(usuario)
 
     await inserir_varios(usuarios)
+
     return usuarios
 
 
@@ -143,14 +145,15 @@ async def criar_administradores(usuarios: list[Usuario]):
     administradores = []
 
     for usuario in usuarios[:100]:
-        admin = Administrador(usuario_id=usuario.id)
+        administrador = Administrador(usuario_id=usuario.id)
 
-        if getattr(admin, "id", None) is None:
-            admin.id = PydanticObjectId()
+        if getattr(administrador, "id", None) is None:
+            administrador.id = PydanticObjectId()
 
-        administradores.append(admin)
+        administradores.append(administrador)
 
     await inserir_varios(administradores)
+
     return administradores
 
 
@@ -166,6 +169,7 @@ async def criar_pacientes(usuarios: list[Usuario]):
         pacientes.append(paciente)
 
     await inserir_varios(pacientes)
+
     return pacientes
 
 
@@ -183,7 +187,7 @@ async def criar_profissionais(usuarios: list[Usuario]):
     for usuario in usuarios[200:300]:
         profissional = ProfissionalSaude(
             usuario_id=usuario.id,
-            grau_formacao=fake.random_element(formacoes),
+            grau_formacao=random.choice(formacoes),
         )
 
         if getattr(profissional, "id", None) is None:
@@ -192,6 +196,7 @@ async def criar_profissionais(usuarios: list[Usuario]):
         profissionais.append(profissional)
 
     await inserir_varios(profissionais)
+
     return profissionais
 
 
@@ -212,7 +217,7 @@ async def criar_vacinas(quantidade: int = 100):
     fake.unique.clear()
 
     for _ in range(quantidade):
-        nome, doenca, publico_alvo, quantidade_doses = fake.random_element(catalogo)
+        nome, doenca, publico_alvo, quantidade_doses = random.choice(catalogo)
 
         vacina = criar_documento(
             Vacina,
@@ -227,19 +232,21 @@ async def criar_vacinas(quantidade: int = 100):
         vacinas.append(vacina)
 
     await inserir_varios(vacinas)
+
     return vacinas
 
 
 async def criar_lotes(vacinas: list[Vacina], quantidade: int = 100):
     lotes = []
 
-    for _ in range(quantidade):
-        vacina = fake.random_element(vacinas)
+    for indice in range(1, quantidade + 1):
+        vacina = random.choice(vacinas)
         data_chegada = fake.date_between(start_date="-1y", end_date="today")
         validade = data_chegada + timedelta(days=fake.random_int(min=180, max=900))
 
         lote = criar_documento(
             Lote,
+            id_lote=indice,
             validade=validade,
             data_chegada=data_chegada,
             quantidade=fake.random_int(min=50, max=2000),
@@ -250,6 +257,7 @@ async def criar_lotes(vacinas: list[Vacina], quantidade: int = 100):
         lotes.append(lote)
 
     await inserir_varios(lotes)
+
     return lotes
 
 
@@ -261,24 +269,22 @@ async def criar_campanhas(
     campanhas = []
     vacinas_por_campanha = []
 
-    for _ in range(quantidade):
+    for indice in range(1, quantidade + 1):
         data_inicio = fake.date_between(start_date="-1y", end_date="+6m")
         data_fim = data_inicio + timedelta(days=fake.random_int(min=15, max=90))
-        admin = fake.random_element(administradores)
+        administrador = random.choice(administradores)
 
         campanha = criar_documento(
             Campanha,
+            id_campanha=indice,
             nome_campanha=f"Campanha {fake.word().capitalize()} {fake.random_int(min=2024, max=2026)}",
             data_inicio=data_inicio,
             data_fim=data_fim,
-            id_admin=admin.id,
+            id_admin=administrador.id,
         )
 
-        vacinas_sorteadas = fake.random_elements(
-            elements=vacinas,
-            length=fake.random_int(min=1, max=3),
-            unique=True,
-        )
+        quantidade_vacinas = fake.random_int(min=1, max=3)
+        vacinas_sorteadas = random.sample(vacinas, quantidade_vacinas)
 
         campanhas.append(campanha)
         vacinas_por_campanha.append((campanha, vacinas_sorteadas))
@@ -291,7 +297,7 @@ async def criar_campanhas(
         for vacina in vacinas_sorteadas:
             vinculo = criar_documento(
                 CampanhaVacina,
-                id_campanha=campanha.id,
+                id_campanha=campanha.id_campanha,
                 codigo_vacina=vacina.codigo_vacina,
             )
 
@@ -319,14 +325,15 @@ async def criar_aplicacoes(
         "Centro de Imunização",
     ]
 
-    for _ in range(quantidade):
-        paciente = fake.random_element(pacientes)
-        profissional = fake.random_element(profissionais)
-        admin = fake.random_element(administradores)
-        lote = fake.random_element(lotes)
+    for indice in range(1, quantidade + 1):
+        paciente = random.choice(pacientes)
+        profissional = random.choice(profissionais)
+        administrador = random.choice(administradores)
+        lote = random.choice(lotes)
 
         aplicacao = criar_documento(
             Aplicacao,
+            id_aplicacao=indice,
             data=fake.date_time_between(
                 start_date="-1y",
                 end_date="now",
@@ -334,14 +341,15 @@ async def criar_aplicacoes(
             ),
             id_paciente=paciente.id,
             id_profissional=profissional.id,
-            id_admin=admin.id,
-            id_lote=lote.id,
-            local=fake.random_element(locais),
+            id_admin=administrador.id,
+            id_lote=lote.id_lote,
+            local=random.choice(locais),
         )
 
         aplicacoes.append(aplicacao)
 
     await inserir_varios(aplicacoes)
+
     return aplicacoes
 
 
@@ -414,28 +422,33 @@ async def criar_documents(campanhas: list[Campanha], quantidade: int = 100):
         )
 
     for _ in range(quantidade):
-        extensao, content_type, prefixo = fake.random_element(tipos)
-        campanha = fake.random_element(campanhas)
+        extensao, content_type, prefixo = random.choice(tipos)
+        campanha = random.choice(campanhas)
         conteudo = conteudos[extensao]
         document_id = PydanticObjectId()
-        object_name = f"{document_id}.{extensao}"
+        object_name = str(document_id)
 
         documento = criar_documento(
             Document,
             id=document_id,
-            original_filename=f"{prefixo}_Campanha_{fake.random_int(min=1000, max=9999)}.{extensao}",
+            original_filename=f"{prefixo}_Campanha_{campanha.id_campanha}_{fake.random_int(min=1000, max=9999)}.{extensao}",
             content_type=content_type,
-            extension=extensao,
+            extension=f".{extensao}",
             size_bytes=len(conteudo),
             created_at=utc_now(),
-            id_campanha=campanha.id,
+            campanha_id=str(campanha.id_campanha),
         )
 
         await documento.insert()
 
         if minio_disponivel:
             try:
-                enviar_arquivo_minio(minio_client, object_name, conteudo, content_type)
+                enviar_arquivo_minio(
+                    minio_client,
+                    object_name,
+                    conteudo,
+                    content_type,
+                )
             except Exception as erro:
                 print(f"Aviso: falha ao enviar {object_name} para o MinIO. Detalhe: {erro}")
 
