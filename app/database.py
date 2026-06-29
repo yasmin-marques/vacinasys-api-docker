@@ -11,6 +11,7 @@ from app.models.profissional_saude import ProfissionalSaude
 from app.models.usuario import Usuario
 from app.models.vacina import Vacina
 
+from app.models.document import Document
 
 client: AsyncMongoClient | None = None
 
@@ -33,10 +34,11 @@ async def init_database() -> None:
             Campanha,
             CampanhaVacina,
             Aplicacao,
+            Document
         ],
     )
 
 
 async def close_database() -> None:
     if client is not None:
-        client.close()
+        await client.close()

@@ -45,6 +45,18 @@ Para interromper os containers:
 docker compose down
 ```
 
+Para ver as dependências instaladas nos containers:
+
+```bash
+docker compose exec api uv pip list
+```
+
+Para realizar testes com o mesmo ambiente (.venv) do Dockerfile:
+
+```bash
+docker compose exec api uv run python -m app.tests.test_document
+```
+
 ---
 
 # Serviços disponíveis

@@ -1,34 +1,27 @@
 from datetime import datetime
 
-from sqlmodel import SQLModel, Field
-
-from .campanha import CampanhaResumo
-
-
-class DocumentBase(SQLModel):
-    original_filename: str = Field(max_length=255)
-    content_type: str = Field(max_length=120)
-    extension: str = Field(max_length=20)
-    size_bytes: int = Field(ge=0)
-    id_campanha: int
+from beanie import PydanticObjectId
+from pydantic import BaseModel, ConfigDict
 
 
-class DocumentCreate(DocumentBase):
-    pass
+class DocumentBase(BaseModel):
+    """Campos de metadados comuns a um documento."""
 
-
-class DocumentUpdate(SQLModel):
-    original_filename: str | None = Field(default=None, max_length=255)
-    content_type: str | None = Field(default=None, max_length=120)
-    extension: str | None = Field(default=None, max_length=20)
-    size_bytes: int | None = Field(default=None, ge=0)
-    id_campanha: int | None = None
-
-
-class DocumentRead(DocumentBase):
-    id: int
+    original_filename: str
+    content_type: str
+    extension: str
+    size_bytes: int
     created_at: datetime
 
 
-class DocumentReadDetalhado(DocumentRead):
-    campanha: CampanhaResumo | None = None
+class DocumentRead(DocumentBase):
+    """Representação de leitura dos metadados de um documento."""
+
+    id: PydanticObjectId
+    campanha_id: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Mantido por compatibilidade com importações antigas.
+DocumentResponse = DocumentRead
