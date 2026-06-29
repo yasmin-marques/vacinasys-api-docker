@@ -1,43 +1,36 @@
 from datetime import date
-from sqlmodel import SQLModel, Field, Relationship
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .administrador import Administrador
-    from .vacina import Vacina
-    from .document import Document
 
-class CampanhaVacina(SQLModel, table=True):
-    __tablename__ = "campanhas_vacinas"
+from beanie import Document, PydanticObjectId
+from pydantic import Field
 
-    id_campanha: int = Field(
-        foreign_key="campanhas.id_campanha",
-        primary_key=True
-    )
 
-    codigo_vacina: str = Field(
-        foreign_key="vacinas.codigo_vacina",
-        primary_key=True,
-        max_length=30
-    )
+class CampanhaVacina(Document):
+    id_campanha: int
+    codigo_vacina: str = Field(max_length=30)
 
-class Campanha(SQLModel, table=True):
-    __tablename__ = "campanhas"
+    class Settings:
+        name = "campanhas_vacinas"
+        indexes = [
+            "id_campanha",
+            "codigo_vacina",
+        ]
 
-    id_campanha: int | None = Field(default=None, primary_key=True)
+
+class Campanha(Document):
+    id_campanha: int | None = None
 
     data_inicio: date
     data_fim: date | None = None
-    nome_campanha: str = Field(index=True, max_length=120)
+    nome_campanha: str = Field(max_length=120)
 
-    id_admin: int = Field(foreign_key="administradores.id_admin")
+    id_admin: PydanticObjectId
 
-    admin: "Administrador" = Relationship(back_populates="campanhas")
-
-    vacinas: list["Vacina"] = Relationship(
-        back_populates="campanhas",
-        link_model=CampanhaVacina,
-    )
-
-    documents: list["Document"] = Relationship(back_populates="campanha")
-
-
+    class Settings:
+        name = "campanhas"
+        indexes = [
+            "id_campanha",
+            "nome_campanha",
+            "data_inicio",
+            "data_fim",
+            "id_admin",
+        ]

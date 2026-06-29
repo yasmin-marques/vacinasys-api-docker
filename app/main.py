@@ -1,7 +1,5 @@
 from contextlib import asynccontextmanager
 
-from app.service.minio_service import MinioService
-
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -9,7 +7,18 @@ from fastapi_pagination import add_pagination
 
 from app.config import settings
 from app.database import close_database, init_database
-from app.routes import administradores, pacientes, profissionais, usuarios, document
+from app.routes import (
+    administradores,
+    aplicacoes,
+    campanhas,
+    document,
+    lotes,
+    pacientes,
+    profissionais,
+    usuarios,
+    vacinas,
+)
+from app.service.minio_service import MinioService
 
 
 @asynccontextmanager
@@ -62,12 +71,14 @@ async def root():
     }
 
 
-
-
 app.include_router(usuarios.router)
 app.include_router(pacientes.router)
 app.include_router(profissionais.router)
 app.include_router(administradores.router)
+app.include_router(vacinas.router)
+app.include_router(lotes.router)
+app.include_router(campanhas.router)
+app.include_router(aplicacoes.router)
 app.include_router(document.router)
 
 add_pagination(app)

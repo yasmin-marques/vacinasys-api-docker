@@ -1,1 +1,11 @@
-# app/routes/__init__.py
+from app.routes import (
+    administradores,
+    aplicacoes,
+    campanhas,
+    document,
+    lotes,
+    pacientes,
+    profissionais,
+    usuarios,
+    vacinas,
+)
