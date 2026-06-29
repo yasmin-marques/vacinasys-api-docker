@@ -17,6 +17,7 @@ class Document(BeanieDocument):
     created_at: datetime = Field(default_factory=utc_now)
 
     campanha_id: str
+    # quando migrar Campanha, decidir se vale a pena trocar para PydanticObjectId ou usar Link
 
     class Settings:
         name = "documents"
