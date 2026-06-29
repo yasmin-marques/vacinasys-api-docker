@@ -108,24 +108,18 @@ class DocumentService:
 
         return document
 
-    async def list_documents(
-        self,
-        campanha_id: str,
-    ) -> list[Document]:
+    def list_documents_query(self, campanha_id: str):
         """
-        Lista todos os documentos associados a uma campanha.
+        Monta a query dos documentos de uma campanha.
 
-        Fluxo esperado:
-            1. Verificar se a campanha existe.
-            2. Consultar os documentos da campanha no MongoDB.
-            3. Retornar a lista de metadados.
+        Retorna o objeto de consulta do Beanie (sem executá-lo) para que a
+        rota aplique a paginação via fastapi-pagination, evitando carregar
+        a coleção inteira de uma só vez.
         """
 
-        documents = await Document.find(
+        return Document.find(
             Document.campanha_id == campanha_id
-        ).to_list()
-
-        return documents
+        ).sort("-created_at")
 
     async def download_document(
         self,
@@ -212,7 +206,7 @@ class DocumentService:
     
     async def delete_document(
         self,
-        document_id: str,
+        document_id: PydanticObjectId,
     ):
         """
         Remove um documento.

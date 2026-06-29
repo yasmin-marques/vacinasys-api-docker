@@ -1,9 +1,12 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from beanie import PydanticObjectId
+from pydantic import BaseModel, ConfigDict
 
 
 class DocumentBase(BaseModel):
+    """Campos de metadados comuns a um documento."""
+
     original_filename: str
     content_type: str
     extension: str
@@ -11,6 +14,14 @@ class DocumentBase(BaseModel):
     created_at: datetime
 
 
-class DocumentResponse(DocumentBase):
-    id: str
+class DocumentRead(DocumentBase):
+    """Representação de leitura dos metadados de um documento."""
+
+    id: PydanticObjectId
     campanha_id: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Mantido por compatibilidade com importações antigas.
+DocumentResponse = DocumentRead

@@ -53,4 +53,8 @@ Atividades principais:
 - Criação e configuração do docker-compose.yml.
 - Configuração dos serviços api, mongo e minio.
 - Configuração dos volumes persistentes do MongoDB e do MinIO.
-- Configuração das variáveis de ambiente no .env e .env.example.
+- Configuração das variáveis de ambiente no .env e .env.example, incluindo as
+  URLs do MongoDB Docker, local e Atlas (apenas uma ativa, as demais comentadas).
+- Implementação de paginação na listagem de documentos (fastapi-pagination).
+- Elaboração do README.md, incluindo instruções de execução via Docker e o
+  diagrama de classes das entidades em Mermaid.
